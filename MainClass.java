@@ -48,10 +48,10 @@ public class MainClass {
     Scanner scan = new Scanner(System.in);
     System.out.print("Input file inside " + TEST_FOLDER + " folder (default test.txt): ");
     String file = scan.nextLine();
-    if (file.equals("")) file = "indomie.txt";
+    if (file.equals("")) file = "test.txt";
     PLAINTEXT_FILE_NAME = TEST_FOLDER + file; 
     long startTime = System.nanoTime();
-    test(); // Comment if not needed
+    testWithFile(); // Comment if not needed
     long duration = System.nanoTime() - startTime;
     System.out.println("Time lapsed : " + duration/1000000000.0 + "s");
   }
@@ -165,6 +165,114 @@ public class MainClass {
     }
   }
 
+  public static void bufferedEncrypt(File plaintextFile, File keyFile) {
+    try {
+      String keyString = new String(Files.readAllBytes(keyFile.toPath()));
+      byte[] key = toByteArray(keyString);
+      System.out.println("key : " + keyString);
+      System.out.println("key length : " + keyString.length()  * 4 + "-bit");      
+
+      // init Cipher
+      byte[] ivBytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x01 };
+      SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+      IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+      Cipher cipher = Cipher.getInstance("AES/CTR/PKCS5Padding");
+      cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+
+      // init I/OStream
+      InputStream  fis = Files.newInputStream(plaintextFile.toPath());
+      OutputStream fos = Files.newOutputStream(Paths.get(ENCRYPTED_FILE_NAME));
+      MessageDigest md = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM);
+      DigestInputStream dis = new DigestInputStream(fis, md); // To hash the plaintext, decorate the inputstream
+
+      // ENCRYPTION
+      System.out.println("Encrypting...");
+      byte[] buffer = new byte[blockSize];
+      byte[] cipherBlock = new byte[cipher.getOutputSize(buffer.length)];
+      int ch; //noBytes
+      int cipherBytes;
+
+      long bytesRead  = 0;
+      long totalBytes = plaintextFile.length();
+      while ((ch = dis.read(buffer)) != -1) {
+        cipherBytes = cipher.update(buffer, 0, ch, cipherBlock);
+        fos.write(cipherBlock,0,cipherBytes);
+        bytesRead += blockSize;
+        bytesRead = Math.min(totalBytes, bytesRead);
+        printProgress(totalBytes,bytesRead);
+      }
+      System.out.println("");
+      cipherBytes = cipher.doFinal(cipherBlock,0);
+      fos.write(cipherBlock,0,cipherBytes);
+
+      // Create checksum of plaintext
+      System.out.println("Encrypting done.");
+
+      createChecksumFile(md, PLAINTEXT_FILE_NAME + HASH_FILE_NAME_EXT);
+
+      fos.flush();
+      fos.close();
+      dis.close();
+      fis.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void bufferedDecrypt(File ciphertextFile, File keyFile) {
+    try {
+      String keyString = new String(Files.readAllBytes(keyFile.toPath()));
+      byte[] key = toByteArray(keyString);
+      System.out.println("key : " + keyString);
+      System.out.println("key length : " + keyString.length()  * 4 + "-bit");      
+
+      // init Cipher
+      byte[] ivBytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x01 };
+      SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+      IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
+      Cipher cipher = Cipher.getInstance("AES/CTR/PKCS5Padding");
+      cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+
+      // init I/OStream
+      InputStream  fis = Files.newInputStream(ciphertextFile.toPath());
+      OutputStream fos = Files.newOutputStream(Paths.get(DECRYPTED_FILE_NAME));
+      MessageDigest md = MessageDigest.getInstance(MESSAGE_DIGEST_ALGORITHM);
+      DigestOutputStream dos = new DigestOutputStream(fos, md); // To hash the deecrypted, decorate the outputstream
+
+      // DECRYPTION
+      System.out.println("Decrypting...");
+      byte[] buffer = new byte[blockSize];
+      byte[] cipherBlock = new byte[cipher.getOutputSize(buffer.length)];
+      int ch; //noBytes
+      int cipherBytes;
+
+      long bytesRead  = 0;
+      long totalBytes = ciphertextFile.length();      
+      while ((ch = fis.read(buffer)) != -1) {
+        cipherBytes = cipher.update(buffer, 0, ch, cipherBlock);
+        dos.write(cipherBlock,0,cipherBytes);
+        bytesRead += blockSize;
+        bytesRead = Math.min(totalBytes, bytesRead);
+        printProgress(totalBytes,bytesRead);
+      }
+      System.out.println("");
+      cipherBytes = cipher.doFinal(cipherBlock,0);
+      dos.write(cipherBlock,0,cipherBytes);
+      System.out.println("Decrypting finished .");
+
+      // Create checksum of decrypted
+      createChecksumFile(md, DECRYPTED_FILE_NAME + HASH_FILE_NAME_EXT);
+
+      dos.flush();
+      dos.close();
+      fos.close();
+      fis.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+
   public static void createChecksumFile(MessageDigest md, String filename) {
     try {
         System.out.println("Creating checksum file " + filename + "...");
@@ -215,12 +323,25 @@ public class MainClass {
   }
 
   // Method to test encryption and decryption processes.
-  public static void test(){
+  public static void testWithString(){
     String filenameOfPlaintext = PLAINTEXT_FILE_NAME;
     String filenameOfKey = KEY_FILE_NAME + 128; // Change to 128, 192, 256
 
     bufferedEncrypt(filenameOfPlaintext, filenameOfKey);
     bufferedDecrypt(ENCRYPTED_FILE_NAME, filenameOfKey);
+    checkContent(PLAINTEXT_FILE_NAME + HASH_FILE_NAME_EXT, DECRYPTED_FILE_NAME + HASH_FILE_NAME_EXT);
+  }
+
+  // Method to test encryption and decryption processes.
+  public static void testWithFile(){
+    String filenameOfPlaintext = PLAINTEXT_FILE_NAME;
+    String filenameOfKey = KEY_FILE_NAME + 128; // Change to 128, 192, 256
+
+    File plaintextFile = new File(PLAINTEXT_FILE_NAME);
+    File keyFile = new File(KEY_FILE_NAME + 128);
+    File ciphertextFile = new File(ENCRYPTED_FILE_NAME);
+    bufferedEncrypt(plaintextFile, keyFile);
+    bufferedDecrypt(ciphertextFile, keyFile);
     checkContent(PLAINTEXT_FILE_NAME + HASH_FILE_NAME_EXT, DECRYPTED_FILE_NAME + HASH_FILE_NAME_EXT);
   }
 
