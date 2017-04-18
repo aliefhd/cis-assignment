@@ -67,7 +67,7 @@ public class MainClass {
   //     byte[] ivBytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x01 };
   //     SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
   //     IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-  //     Cipher cipher = Cipher.getInstance("AES/CTR/PKCS5Padding");
+  //     Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
   //     cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
 
   //     // init I/OStream
@@ -175,7 +175,7 @@ public class MainClass {
       byte[] ivBytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x01 };
       SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
       IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-      Cipher cipher = Cipher.getInstance("AES/CTR/PKCS5Padding");
+      Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
       cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
 
       // init I/OStream
@@ -255,7 +255,7 @@ public class MainClass {
       byte[] ivBytes = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x01 };
       SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
       IvParameterSpec ivSpec = new IvParameterSpec(ivBytes);
-      Cipher cipher = Cipher.getInstance("AES/CTR/PKCS5Padding");
+      Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
       cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
 
       // init I/OStream
@@ -372,11 +372,8 @@ public class MainClass {
 
   // Method to test encryption and decryption processes.
   public static void testWithFile(){
-    String filenameOfPlaintext = PLAINTEXT_FILE_NAME;
-    String filenameOfKey = KEY_FILE_NAME + 128; // Change to 128, 192, 256
-
     File plaintextFile = new File(PLAINTEXT_FILE_NAME);
-    File keyFile = new File(KEY_FILE_NAME + 128);
+    File keyFile = new File(KEY_FILE_NAME + 256); // add: 128/192/256
     File ciphertextFile = new File(ENCRYPTED_FILE_NAME);
     bufferedEncrypt(plaintextFile, keyFile);
     bufferedDecrypt(ciphertextFile, keyFile);
@@ -400,6 +397,7 @@ public class MainClass {
     System.out.print(string);
   }
 
+  // Add Padding to buffer
   private static byte[] padding(int bytesRead, byte[] buffer) {
     int padlength = 16 - (bytesRead % 16);
     if (padlength == 0 ) {
