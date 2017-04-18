@@ -207,7 +207,6 @@ public class MainClass {
           } else {
             readBuffer = padding(ch, readBuffer);
             ch = ((ch / 16) * 16) + 16;
-            System.out.println("CH: " + ch);
           }
         }
         
@@ -232,7 +231,7 @@ public class MainClass {
       fos.write(cipherBlock,0,cipherBytes);
 
       // Create checksum of plaintext
-      System.out.println("Encrypting done.");
+      System.out.println("Encrypting finished.");
 
       createChecksumFile(md, PLAINTEXT_FILE_NAME + HASH_FILE_NAME_EXT);
 
@@ -283,9 +282,9 @@ public class MainClass {
 
         ch2 = fis.read(buffer);
         if (ch2 == -1) { //ch is last read, need to remove pad
-          System.out.println("BEFORE CB: " + cipherBytes);
-          cipherBytes = gniddap(cipherBytes, cipherBlock);
-          System.out.println("AFTER CB: " + cipherBytes);
+          // System.out.println("BEFORE CB: " + cipherBytes);
+          cipherBytes = removePadding(cipherBytes, cipherBlock);
+          // System.out.println("AFTER CB: " + cipherBytes);
         }
         
         dos.write(cipherBlock,0,cipherBytes);
@@ -297,7 +296,7 @@ public class MainClass {
       System.out.println("");
       cipherBytes = cipher.doFinal(cipherBlock,0);
       dos.write(cipherBlock,0,cipherBytes);
-      System.out.println("Decrypting finished .");
+      System.out.println("Decrypting finished.");
 
       // Create checksum of decrypted
       createChecksumFile(md, DECRYPTED_FILE_NAME + HASH_FILE_NAME_EXT);
@@ -412,21 +411,27 @@ public class MainClass {
   }
 
   // Remove padding from decrypted
-  private static int gniddap(int bytesRead, byte[] buffer) {
+  private static int removePadding(int bytesRead, byte[] buffer) {
     //get last byte read from buffer
     byte lastByte = buffer[bytesRead - 1];
     //get supposed length of pad
     int supposedPadLength = (int) lastByte;
     if (supposedPadLength > 16 || supposedPadLength < 1) {
-      System.out.println("NOTNEEDED");
+      // There is no padding, just return the bytes read as it is.
       return bytesRead;
     }
+
+    // Check if lastBytes of supposedPadLength are actually the pad bytes.
     byte[] lastBytes = new byte[supposedPadLength];
     System.arraycopy(buffer,bytesRead - supposedPadLength, lastBytes, 0, supposedPadLength);
-    System.out.println("LBS: " + toHexString(lastBytes));
+    // System.out.println("LBS: " + toHexString(lastBytes));
+    // System.out.println("CPA: " + toHexString(createPadArray(supposedPadLength)));
     if(Arrays.equals(createPadArray(supposedPadLength), lastBytes)) {
+      // If it actually is, substract the bytesread with the pad length
+      // So that we only write the deciphered text without the padding.
       return bytesRead - supposedPadLength;
     }
+    // If it isn't, just return the bytes read as it is.
     return bytesRead;
   }
 
